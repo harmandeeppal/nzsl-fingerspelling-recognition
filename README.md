@@ -1,5 +1,51 @@
 # NZSL Fingerspelling Recognition
 
+## Git LFS — Required for Model Checkpoints
+
+The trained model files in `checkpoints/` (`.joblib`, `.h5`, `.pkl`, `.npy`) are stored using **Git Large File Storage (LFS)**. You must have Git LFS installed before cloning, otherwise these files will download as tiny pointer stubs and the server will fail to start.
+
+### Install Git LFS (once per machine)
+
+Download from [git-lfs.com](https://git-lfs.com) or via a package manager:
+
+```powershell
+# Windows (winget)
+winget install GitHub.GitLFS
+
+# macOS (Homebrew)
+brew install git-lfs
+
+# Linux (apt)
+sudo apt install git-lfs
+```
+
+After installing, initialise it once:
+
+```powershell
+git lfs install
+```
+
+### Clone the repository
+
+```powershell
+git clone <repo-url>
+cd nzsl-fingerspelling
+```
+
+Git LFS downloads the checkpoint files automatically during the clone if LFS is already installed.
+
+### If you already cloned without LFS
+
+Run this from the project root to download the actual model files:
+
+```powershell
+git lfs pull
+```
+
+The bootstrap script checks for LFS pointer stubs and will tell you if `git lfs pull` is needed before the server can start.
+
+---
+
 ## Quick Start — Run on Your Local Machine
 
 The fastest way to get the demo running is the **bootstrap script**. It handles environment creation, dependency installation, and server startup in a single command.

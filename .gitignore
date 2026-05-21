@@ -4,7 +4,6 @@ kaggle.json
 # kaggle.json.example is safe to commit — contains no real credentials
 
 # ── Generated data and model files ───────────────────────────────────────────
-outputs/
 checkpoints/
 latex/
 *.h5

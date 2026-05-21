@@ -1,0 +1,5 @@
+hand_group,pair,accuracy,test_samples,L_to_A,A_to_L,correct_L,correct_A,basis,T_to_A,A_to_T,correct_T,U_to_S,S_to_U,correct_U,correct_S,U_to_E,E_to_U,correct_E
+two_hand,L/A,1.0,257,0.0,0.0,115.0,142.0,manual live-testing confusion pair,,,,,,,,,,
+two_hand,T/A,1.0,236,,,,142.0,manual live-testing confusion pair,0.0,0.0,94.0,,,,,,,
+two_hand,U/S,0.9887640449438202,178,,,,,manual live-testing confusion pair,,,,0.0,0.0,96.0,80.0,,,
+two_hand,U/E,0.9914893617021276,235,,,,,manual live-testing confusion pair,,,,,,96.0,,2.0,0.0,137.0

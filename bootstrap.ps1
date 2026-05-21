@@ -136,7 +136,41 @@ if (-not $envExists) {
     }
 }
 
-# ── 4. Model checkpoint files ─────────────────────────────────────────────────
+# ── 4. Git LFS — pull model checkpoints if needed ────────────────────────────
+Write-Step "Checking Git LFS..."
+
+$isGitRepo = (git rev-parse --is-inside-work-tree 2>&1) -eq "true"
+if ($isGitRepo) {
+    $lfsCheck = git lfs version 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        git lfs install 2>&1 | Out-Null
+        Write-OK "Git LFS ready ($($lfsCheck.ToString().Trim()))."
+
+        Write-Step "Pulling LFS checkpoint files..."
+        git lfs pull
+        if ($LASTEXITCODE -ne 0) {
+            Fail ("'git lfs pull' failed.`n" +
+                  "       Check that you have access to the repository and try again.")
+        }
+        Write-OK "LFS files are up to date."
+    } else {
+        # LFS not installed — check whether any checkpoint files are pointer stubs.
+        $stubs = @(Get-ChildItem checkpoints -ErrorAction SilentlyContinue) | Where-Object {
+            $first = Get-Content $_.FullName -TotalCount 1 -Encoding UTF8 -ErrorAction SilentlyContinue
+            $first -match "^version https://git-lfs"
+        }
+        if ($stubs) {
+            Fail ("Git LFS is not installed but checkpoint files are LFS pointer stubs.`n" +
+                  "       Install Git LFS: https://git-lfs.com`n" +
+                  "       Then rerun this script — it will run 'git lfs pull' automatically.")
+        }
+        Write-Warn "Git LFS not installed — checkpoint files appear to be local, continuing."
+    }
+} else {
+    Write-OK "Not a git repository — skipping LFS check."
+}
+
+# ── 5. Model checkpoint files ─────────────────────────────────────────────────
 Write-Step "Checking model checkpoints..."
 
 $checkpoints = @(
@@ -196,25 +230,18 @@ if ($portCheck) {
 Write-Host ""
 Write-Host "  ────────────────────────────────────────────" -ForegroundColor DarkGray
 Write-Host "  All checks passed. Starting the server..." -ForegroundColor White
+Write-Host ""
+Write-Host "  Once you see 'Application startup complete.' below," -ForegroundColor DarkGray
+Write-Host "  open this link in your browser:" -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "    http://localhost:$PORT" -ForegroundColor Cyan
+Write-Host ""
 Write-Host "  Press CTRL+C to stop." -ForegroundColor DarkGray
 Write-Host "  ────────────────────────────────────────────" -ForegroundColor DarkGray
 Write-Host ""
 
-# Pipe uvicorn output line-by-line through ForEach-Object so we can detect
-# "Application startup complete" and print the URL at that exact moment.
-# No background jobs, no hidden processes — just output interception.
-$linkShown = $false
-conda run -n $ENV_NAME `
-    uvicorn backend.nzsl_api:app --reload --port $PORT 2>&1 | ForEach-Object {
-    Write-Host "  $_"
-    if (-not $linkShown -and ($_ -match "Application startup complete")) {
-        $linkShown = $true
-        Write-Host ""
-        Write-Host "  ----------------------------------------" -ForegroundColor Green
-        Write-Host "  Server ready. Open in your browser:" -ForegroundColor Green
-        Write-Host "  http://localhost:$PORT" -ForegroundColor Cyan
-        Write-Host "  ----------------------------------------" -ForegroundColor Green
-        Write-Host ""
-    }
-}
+# --no-capture-output streams uvicorn directly to this terminal in real time.
+# Piping (2>&1 | ForEach-Object) silently buffers all output until exit — do not use it.
+conda run --no-capture-output -n $ENV_NAME `
+    uvicorn backend.nzsl_api:app --reload --port $PORT
 

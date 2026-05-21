@@ -1,0 +1,31 @@
+name: nzsl-env
+# Pin notation:
+#   Conda packages: >=X.Y,<X+1  (compatible-release equivalent for conda)
+#   Pip packages:   ~=X.Y        (PEP 440 compatible release — allows patch updates)
+#
+# Compatibility anchor: mediapipe 0.10.14 requires protobuf<5.
+#   TF 2.16+ pulls in protobuf 5+ by default — pin protobuf explicitly to <5
+#   so both packages can coexist. TF 2.19.x is fully compatible with protobuf 4.25.x.
+#
+# Kaggle note: numpy, pandas, scikit-learn, tensorflow, opencv-python,
+#   matplotlib, seaborn, jupyterlab, kaggle are pre-installed in Kaggle Python 3.10.
+#   Only mediapipe typically requires explicit install: !pip install mediapipe==0.10.14
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy>=2.1,<2.2
+  - pandas>=2.2,<3
+  - matplotlib>=3.9,<4
+  - seaborn>=0.13,<1
+  - scikit-learn>=1.5,<2
+  - joblib>=1.5,<2
+  - jupyterlab>=4.3,<5
+  - pip>=23
+  - pip:
+      - mediapipe==0.10.14
+      - protobuf>=4.25.3,<5    # keep <5: mediapipe requires it; TF 2.16+ pulls in 5+ without this pin
+      - opencv-python~=4.13
+      - tensorflow~=2.19
+      - kaggle~=1.6

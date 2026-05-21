@@ -1,0 +1,45 @@
+# ── Credentials — never commit these ─────────────────────────────────────────
+.env
+kaggle.json
+# kaggle.json.example is safe to commit — contains no real credentials
+
+# ── Generated data and model files ───────────────────────────────────────────
+outputs/
+checkpoints/
+latex/
+*.h5
+*.joblib
+*.pkl
+*.npy
+
+# ── Generated plot outputs ────────────────────────────────────────────────────
+confusion_matrix_*.png
+training_history.png
+privacy_comparison.png
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Conda / virtual environments ──────────────────────────────────────────────
+.conda/
+venv/
+env/
+ENV/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── VS Code ───────────────────────────────────────────────────────────────────
+.vscode/
+.claude/

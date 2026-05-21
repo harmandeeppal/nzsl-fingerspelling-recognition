@@ -1,0 +1,16 @@
+# ═════════════════════════════════════════════════════════════
+# NZSL Fingerspelling API Requirements (nzsl_api.py)
+# ═════════════════════════════════════════════════════════════
+# Install:  pip install -r backend/requirements.txt
+# Run:      uvicorn backend.nzsl_api:app --reload --port 8000
+
+# API framework — the only packages not already present in nzsl_env
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+aiofiles>=24.1.0        # required by FastAPI StaticFiles
+pydantic>=2.0.0
+
+# numpy, scikit-learn, joblib, tensorflow are already installed in nzsl_env.
+# Do NOT pin them here — the API must use the exact same versions that trained
+# the models. Pinning to a different version causes pip to downgrade the
+# environment and can break model loading.

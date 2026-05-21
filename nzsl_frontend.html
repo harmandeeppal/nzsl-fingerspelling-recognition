@@ -1,0 +1,753 @@
+ś<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NZSL Fingerspelling Recognition</title>
+<style>
+:root {
+  --ink: #0a0c10;
+  --surface: #f4f3ef;
+  --surface-2: #eceae4;
+  --border: rgba(10,12,16,0.12);
+  --border-strong: rgba(10,12,16,0.22);
+  --accent: #1a3fff;
+  --accent-2: #0e2bcc;
+  --green: #0f7a45;
+  --green-light: #e3f5ec;
+  --amber: #b05a00;
+  --radius: 6px;
+  --radius-lg: 10px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, sans-serif;
+  background: var(--surface);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+}
+header {
+  background: var(--ink);
+  color: #fff;
+  padding: 0 2rem;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.logo     { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.logo-sub { font-size: 11px; color: rgba(255,255,255,0.4); font-family: monospace; }
+.status-badge {
+  margin-left: auto;
+  font-size: 10px; font-family: monospace;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px;
+  padding: 2px 10px;
+  color: rgba(255,255,255,0.45);
+}
+
+.main {
+  max-width: 1080px;
+  margin: 1.5rem auto;
+  padding: 0 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  grid-template-rows: auto auto;
+  gap: 1.25rem;
+}
+.card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.card-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(10,12,16,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.card-body { padding: 16px; }
+
+/* ── Webcam panel ── */
+.canvas-wrap {
+  position: relative;
+  background: #000;
+  border-radius: var(--radius);
+  overflow: hidden;
+  aspect-ratio: 4/3;
+}
+canvas { width: 100%; height: 100%; display: block; transform: scaleX(-1); }
+video  { display: none; }
+.canvas-overlay {
+  position: absolute;
+  bottom: 10px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.55);
+  color: rgba(255,255,255,0.75);
+  font-size: 11px; font-family: monospace;
+  padding: 3px 12px;
+  border-radius: 99px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.toggle-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.toggle-btn {
+  flex: 1; padding: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: none; cursor: pointer;
+  font-size: 12px; color: var(--ink);
+  transition: background 0.15s, color 0.15s;
+}
+.toggle-btn:hover  { background: var(--surface-2); }
+.toggle-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+/* ── Right panel ── */
+.pred-block {
+  text-align: center;
+  padding: 20px 16px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.pred-letter {
+  font-size: 88px; font-weight: 800; line-height: 1;
+  color: var(--ink); letter-spacing: -0.02em;
+  min-height: 96px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s;
+}
+.pred-letter.flash { color: var(--accent); }
+.pred-letter.empty { font-size: 36px; color: rgba(10,12,16,0.18); font-weight: 300; }
+.conf-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; margin-top: 5px;
+  font-size: 11px; font-family: monospace; color: rgba(10,12,16,0.45);
+}
+.conf-dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; }
+.conf-dot.high { background: var(--green); }
+.conf-dot.mid  { background: var(--amber); }
+
+.hold-track { height: 4px; background: var(--surface-2); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+.hold-bar   { height: 100%; width: 0%; background: var(--accent); border-radius: 99px; transition: width 0.08s linear; }
+
+/* ── Sign reference ── */
+.ref-block {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.block-label {
+  font-size: 10px; font-family: monospace;
+  color: rgba(10,12,16,0.38); text-transform: uppercase;
+  letter-spacing: 0.06em; margin-bottom: 8px;
+}
+.ref-canvas {
+  width: 100%; aspect-ratio: 1;
+  background: #111; border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.ref-canvas img {
+  width: 100%; height: 100%; object-fit: contain; display: block;
+}
+.ref-canvas .ref-hint {
+  font-size: 11px; font-family: monospace; color: rgba(255,255,255,0.2);
+}
+
+/* ── Model pills ── */
+.model-block {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.pills { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* #added: small live-use guidance for one-hand/two-hand routed prediction */
+.guidance-box {
+  margin-top: 10px;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(10,12,16,0.62);
+}
+.guidance-box strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.guidance-box span {
+  display: block;
+}
+.pill {
+  font-family: monospace; font-size: 10px;
+  padding: 4px 9px; border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: none; cursor: pointer; color: var(--ink);
+  transition: all 0.12s; text-align: left;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.pill:hover { border-color: var(--accent); color: var(--accent); }
+.pill.selected { background: var(--ink); color: #fff; border-color: var(--ink); }
+.pill-acc { font-size: 9px; opacity: 0.45; }
+
+/* ── TTS row ── */
+.tts-row {
+  padding: 11px 16px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: rgba(10,12,16,0.55);
+}
+
+/* ── Word builder ── */
+.word-card { grid-column: 1 / -1; }
+.word-display {
+  font-family: monospace; font-size: 30px; font-weight: 600;
+  letter-spacing: 0.12em; min-height: 46px;
+  border-bottom: 1px solid var(--border);
+  padding: 6px 4px 10px;
+  margin-bottom: 12px;
+  display: flex; align-items: center;
+}
+.word-display .cursor {
+  display: inline-block; width: 2px; height: 32px;
+  background: var(--accent); margin-left: 3px;
+  animation: blink 1s step-end infinite; vertical-align: middle;
+}
+@keyframes blink { 50% { opacity: 0; } }
+.word-actions { display: flex; gap: 8px; }
+.w-btn {
+  padding: 8px 18px; border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: none; cursor: pointer; font-size: 13px; color: var(--ink);
+  transition: background 0.14s;
+}
+.w-btn:hover { background: var(--surface-2); }
+.w-btn.speak { background: var(--accent); color: #fff; border-color: var(--accent); }
+.w-btn.speak:hover { background: var(--accent-2); }
+.w-btn.clear { border-color: rgba(196,40,42,0.3); color: #c4282a; }
+.w-btn.clear:hover { background: #fceaea; }
+
+
+/* ── Sign gallery ── */
+.sign-gallery-card { grid-column: 1 / -1; }
+.sign-gallery-intro {
+  font-size: 12px;
+  color: rgba(10,12,16,0.58);
+  margin-bottom: 12px;
+}
+.sign-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+}
+.sign-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 8px;
+}
+.sign-item img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: #111;
+  border-radius: var(--radius);
+  display: block;
+}
+.sign-file {
+  margin-top: 6px;
+  font-family: monospace;
+  font-size: 10px;
+  color: rgba(10,12,16,0.72);
+  text-align: center;
+  word-break: break-word;
+}
+.sign-label {
+  font-size: 9px;
+  color: rgba(10,12,16,0.42);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 680px) {
+  .main { grid-template-columns: 1fr; }
+  .word-card { grid-column: 1; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">NZSL Fingerspelling</span>
+  <span class="logo-sub">Privacy-Preserving · MediaPipe Hands</span>
+  <span class="status-badge" id="statusBadge">connecting…</span>
+</header>
+
+<div class="main">
+
+  <!-- ── Left: webcam ── -->
+  <div class="card">
+    <div class="card-header">Live Webcam Recognition</div>
+    <div class="card-body">
+      <div class="canvas-wrap">
+        <video id="video" playsinline></video>
+        <canvas id="canvas"></canvas>
+        <div class="canvas-overlay" id="camStatus">Initialising MediaPipe…</div>
+      </div>
+      <div class="toggle-row">
+        <button class="toggle-btn active" id="btnSkel" onclick="setMode('skeleton')">Skeleton only</button>
+        <button class="toggle-btn" id="btnOver" onclick="setMode('overlay')">Webcam + overlay</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right: info ── -->
+  <div class="card" style="display:flex;flex-direction:column;">
+
+    <!-- Prediction + hold bar -->
+    <div class="pred-block">
+      <div class="pred-letter empty" id="predLetter">—</div>
+      <div class="conf-row">
+        <div class="conf-dot" id="confDot"></div>
+        <span id="confText">no hands detected</span>
+      </div>
+      <div class="hold-track"><div class="hold-bar" id="holdBar"></div></div>
+    </div>
+
+    <!-- Sign reference -->
+    <div class="ref-block">
+      <div class="block-label">Reference sign</div>
+      <div class="ref-canvas" id="refCanvas">
+        <span class="ref-hint" id="refHint">show a sign</span>
+        <img id="refImg" alt="reference sign" style="display:none">
+      </div>
+    </div>
+
+    <!-- Model selector -->
+  <div class="model-block">
+  <div class="block-label">Model</div>
+  <div class="pills" id="modelPills">
+    <span style="font-size:11px;color:rgba(10,12,16,0.4);font-family:monospace">Loading…</span>
+  </div>
+
+  <!-- #added: user guidance for routed one-hand/two-hand prediction -->
+  <div class="guidance-box">
+    <strong>Signing guide</strong>
+    <span>One-hand signs: show one hand clearly.</span>
+    <span>Two-hand signs: keep both hands visible and stable.</span>
+    <span>Try to match the reference skeleton before holding the sign.</span>
+  </div>
+</div>
+
+    <!-- TTS -->
+    <div class="tts-row">
+      <input type="checkbox" id="ttsOn" checked style="accent-color:var(--accent)">
+      <label for="ttsOn">Speak each committed letter</label>
+    </div>
+
+  </div>
+
+  <!-- ── Word builder ── -->
+  <div class="card word-card">
+    <div class="card-header">Word Builder — hold a sign steady for ~1 second to commit the letter</div>
+    <div class="card-body">
+      <div class="word-display" id="wordDisplay"><span class="cursor"></span></div>
+      <div class="word-actions">
+        <button class="w-btn" onclick="backspace()">⌫ Backspace</button>
+        <button class="w-btn clear" onclick="clearWord()">Clear</button>
+        <button class="w-btn speak" onclick="speakWord()">🔊 Speak word</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── Full sign reference gallery ── -->
+  <div class="card sign-gallery-card">
+    <div class="card-header">All Sign References — use these skeletons to match hand shapes</div>
+    <div class="card-body">
+      <div class="sign-gallery-intro">
+        These are the saved skeleton reference images from <code>backend/static/signs</code>.
+        The filename is shown under each image so it is easier to match the correct sign during testing.
+      </div>
+      <div class="sign-grid" id="signGallery">
+        <span style="font-size:11px;color:rgba(10,12,16,0.4);font-family:monospace">Loading sign references…</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MediaPipe via CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+
+<script>
+'use strict';
+// ── Config ────────────────────────────────────────────────────────────────────
+const API_BASE      = window.NZSL_API_BASE || window.location.origin;
+const SMOOTH_FRAMES = 8;    // rolling buffer size for majority-vote smoothing
+const HOLD_FRAMES   = 20;   // stable API calls needed to commit (~1 s at 20 calls/s)
+const MIN_CONF      = 0.55; // confidence below this is suppressed
+const API_MS        = 80;   // ms between API calls (~12/sec)
+const COOLDOWN_FRAMES = 12; // gap before same letter can be committed again
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let selectedModel = 'svm_rbf';
+let displayMode   = 'skeleton';
+let wordLetters   = [];
+let predBuffer    = [];
+let holdLabel     = null;
+let holdCount     = 0;
+let cooldown      = 0;
+let lastApiCall   = 0;
+let lastRefLabel  = null;
+
+// ── Feature extraction — matches Python nzsl_fingerspelling_pipeline.ipynb ────
+function normalizeHand(landmarks) {
+    // landmarks: array of 21 {x, y, z} from MediaPipe JS
+    const pts   = landmarks.map(lm => [lm.x, lm.y]);
+    const wrist = pts[0];
+    // Wrist-relative
+    const rel   = pts.map(p => [p[0] - wrist[0], p[1] - wrist[1]]);
+    // Scale by wrist → middle-MCP distance (landmark 9)
+    const scale = Math.sqrt(rel[9][0] ** 2 + rel[9][1] ** 2) + 1e-6;
+    const norm  = rel.map(p => [p[0] / scale, p[1] / scale]);
+
+    // 42 wrist-relative coordinates (flat)
+    const flat = norm.flatMap(p => p);
+
+    // 210 pairwise Euclidean distances
+    const dists = [];
+    for (let i = 0; i < 21; i++) {
+        for (let j = i + 1; j < 21; j++) {
+            const dx = norm[i][0] - norm[j][0];
+            const dy = norm[i][1] - norm[j][1];
+            dists.push(Math.sqrt(dx * dx + dy * dy));
+        }
+    }
+
+    // 2 orientation values: sin/cos of angle between index-MCP and pinky-MCP vectors from wrist
+    const v1     = norm[5];   // index MCP (wrist is now origin)
+    const v2     = norm[17];  // pinky MCP
+    const crossZ = v1[0] * v2[1] - v1[1] * v2[0];
+    const dot    = v1[0] * v2[0] + v1[1] * v2[1];
+    const angle  = Math.atan2(crossZ, dot);
+
+    return [...flat, ...dists, Math.sin(angle), Math.cos(angle)]; // 254 values
+}
+
+function extractFeatureVector(results) {
+    const empty = new Array(254).fill(0);
+    let left = [...empty], right = [...empty];
+    if (results.multiHandLandmarks && results.multiHandedness) {
+        for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+            const label = results.multiHandedness[i].label; // 'Left' or 'Right'
+            const feat  = normalizeHand(results.multiHandLandmarks[i]);
+            if (label === 'Left') left  = feat;
+            else                  right = feat;
+        }
+    }
+    return [...left, ...right]; // 508 values
+}
+
+// ── Canvas rendering ──────────────────────────────────────────────────────────
+const video  = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+
+function renderFrame(results) {
+    canvas.width  = results.image.width;
+    canvas.height = results.image.height;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (displayMode === 'overlay') {
+        ctx.drawImage(results.image, 0, 0);
+    } else {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    if (results.multiHandLandmarks) {
+        for (const lms of results.multiHandLandmarks) {
+            drawConnectors(ctx, lms, HAND_CONNECTIONS, { color: '#00e5ff', lineWidth: 2 });
+            drawLandmarks(ctx, lms, { color: '#fff', lineWidth: 1, radius: 3 });
+        }
+    }
+}
+
+// ── MediaPipe Hands setup ─────────────────────────────────────────────────────
+const hands = new Hands({
+    locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+});
+hands.setOptions({
+    maxNumHands:            2,
+    modelComplexity:        1,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence:  0.5,
+});
+
+hands.onResults(results => {
+    renderFrame(results);
+    const hasHands = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
+
+    if (!hasHands) {
+        setNoHand();
+        return;
+    }
+
+    document.getElementById('camStatus').textContent =
+        `${results.multiHandLandmarks.length} hand(s) — ${displayMode === 'skeleton' ? 'skeleton mode' : 'overlay mode'}`;
+
+    const now = Date.now();
+    if (now - lastApiCall < API_MS) return;
+    lastApiCall = now;
+
+    const features = extractFeatureVector(results);
+    sendPredict(features);
+});
+
+const camera = new Camera(video, {
+    onFrame: async () => { await hands.send({ image: video }); },
+    width: 640, height: 480,
+});
+camera.start()
+    .then(()  => { document.getElementById('camStatus').textContent = 'Webcam active — show your hands'; })
+    .catch(e  => { document.getElementById('camStatus').textContent = 'Webcam error: ' + e.message; });
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function sendPredict(features) {
+    try {
+        const res = await fetch(`${API_BASE}/predict`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ features, model_key: selectedModel }),
+        });
+        if (!res.ok) return;
+        const { label, confidence } = await res.json();
+        handlePrediction(label, confidence);
+    } catch { /* API unreachable */ }
+}
+
+// ── Smoothing + hold-to-commit ────────────────────────────────────────────────
+function handlePrediction(label, confidence) {
+    if (confidence < MIN_CONF) { setLowConf(); return; }
+
+    // Majority-vote smoothing over last SMOOTH_FRAMES predictions
+    predBuffer.push(label);
+    if (predBuffer.length > SMOOTH_FRAMES) predBuffer.shift();
+
+    const counts = {};
+    predBuffer.forEach(l => { counts[l] = (counts[l] || 0) + 1; });
+    const [stableLabel, stableCount] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+
+    if (stableCount / predBuffer.length < 0.55) { setLowConf(); return; }
+
+    // Update UI
+    showPred(stableLabel, confidence);
+    updateRef(stableLabel);
+
+    // Hold-to-commit
+    if (cooldown > 0) { cooldown--; setHold(0); return; }
+
+    if (stableLabel === holdLabel) {
+        holdCount++;
+    } else {
+        holdLabel = stableLabel;
+        holdCount = 1;
+    }
+
+    setHold(holdCount / HOLD_FRAMES);
+
+    if (holdCount >= HOLD_FRAMES) {
+        commitLetter(stableLabel);
+        holdLabel  = null;
+        holdCount  = 0;
+        cooldown   = COOLDOWN_FRAMES;
+        predBuffer = [];
+        setHold(0);
+    }
+}
+
+function commitLetter(letter) {
+    wordLetters.push(letter);
+    renderWord();
+    if (document.getElementById('ttsOn').checked) {
+        const u = new SpeechSynthesisUtterance(letter);
+        u.rate = 0.9; speechSynthesis.speak(u);
+    }
+    // brief flash
+    const el = document.getElementById('predLetter');
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 220);
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function setNoHand() {
+    document.getElementById('predLetter').textContent = '—';
+    document.getElementById('predLetter').className   = 'pred-letter empty';
+    document.getElementById('confDot').className      = 'conf-dot';
+    document.getElementById('confText').textContent   = 'no hands detected';
+    document.getElementById('camStatus').textContent  = 'Show your hands to the camera';
+    holdLabel = null; holdCount = 0; predBuffer = []; cooldown = 0;
+    setHold(0);
+}
+
+function setLowConf() {
+    document.getElementById('confDot').className    = 'conf-dot mid';
+    document.getElementById('confText').textContent = 'low confidence — match reference and hold still';
+    holdCount = Math.max(0, holdCount - 1);
+    setHold(holdCount / HOLD_FRAMES);
+}
+
+function showPred(label, confidence) {
+    const el = document.getElementById('predLetter');
+    if (!el.classList.contains('flash')) {
+        el.textContent = label;
+        el.className   = 'pred-letter';
+    }
+    const high = confidence >= 0.70;
+    document.getElementById('confDot').className    = 'conf-dot ' + (high ? 'high' : 'mid');
+    document.getElementById('confText').textContent = `${Math.round(confidence * 100)}% confidence`;
+}
+
+function setHold(frac) {
+    document.getElementById('holdBar').style.width = Math.min(100, frac * 100) + '%';
+}
+
+function updateRef(label) {
+    if (label === lastRefLabel) return;
+    lastRefLabel = label;
+    const img  = document.getElementById('refImg');
+    const hint = document.getElementById('refHint');
+    img.onload  = () => { img.style.display = 'block'; hint.style.display = 'none'; };
+    img.onerror = () => { img.style.display = 'none';  hint.style.display = '';
+                          hint.textContent = `(no ref for ${label})`; };
+    img.src = `${API_BASE}/signs/${encodeURIComponent(label)}.png`;
+}
+
+function renderWord() {
+    const d = document.getElementById('wordDisplay');
+    d.innerHTML = (wordLetters.length ? wordLetters.join(' ') + ' ' : '') + '<span class="cursor"></span>';
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+function setMode(mode) {
+    displayMode = mode;
+    document.getElementById('btnSkel').classList.toggle('active', mode === 'skeleton');
+    document.getElementById('btnOver').classList.toggle('active', mode === 'overlay');
+}
+
+function backspace() { wordLetters.pop(); renderWord(); }
+function clearWord()  { wordLetters = []; renderWord(); }
+function speakWord()  {
+    if (!wordLetters.length) return;
+    const u = new SpeechSynthesisUtterance(wordLetters.join(''));
+    u.rate = 0.85; speechSynthesis.speak(u);
+}
+
+// ── Load model list from API ──────────────────────────────────────────────────
+const PILL_ORDER = ['svm_rbf', 'random_forest', 'knn', 'mlp_sklearn', 'mlp_keras'];
+
+async function loadModels() {
+    try {
+        const data = await fetch(`${API_BASE}/models`).then(r => r.json());
+        const keys = PILL_ORDER.filter(k => data[k])
+                     .concat(Object.keys(data).filter(k => !PILL_ORDER.includes(k)));
+
+        const el = document.getElementById('modelPills');
+        el.innerHTML = '';
+
+        if (!keys.length) {
+            el.innerHTML = '<span style="font-size:11px;color:#c4282a;font-family:monospace">No models found — run Section 14 in the notebook</span>';
+            return;
+        }
+
+        selectedModel = keys[0];
+
+        keys.forEach(key => {
+            const m   = data[key];
+            const btn = document.createElement('button');
+            btn.className = 'pill' + (key === selectedModel ? ' selected' : '');
+            btn.innerHTML = `${m.display_name}<span class="pill-acc">${(m.accuracy * 100).toFixed(1)}% acc</span>`;
+            btn.onclick = () => {
+                selectedModel = key;
+                document.querySelectorAll('.pill').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                predBuffer = []; holdLabel = null; holdCount = 0;
+            };
+            el.appendChild(btn);
+        });
+
+        document.getElementById('statusBadge').textContent = `${keys.length} models ready`;
+        document.getElementById('statusBadge').style.color = '#4ade80';
+    } catch {
+        document.getElementById('statusBadge').textContent = 'API offline';
+        document.getElementById('statusBadge').style.color = '#f87171';
+        document.getElementById('modelPills').innerHTML =
+            '<span style="font-size:11px;color:#c4282a;font-family:monospace">Cannot reach API — run: uvicorn backend.nzsl_api:app --reload</span>';
+    }
+}
+
+
+// ── Load full sign reference gallery ─────────────────────────────────────────
+async function loadSignGallery() {
+    const gallery = document.getElementById('signGallery');
+    if (!gallery) return;
+
+    try {
+        const data = await fetch(`${API_BASE}/signs-list`).then(r => r.json());
+        const files = data.signs || [];
+
+        gallery.innerHTML = '';
+
+        if (!files.length) {
+            gallery.innerHTML =
+                '<span style="font-size:11px;color:#c4282a;font-family:monospace">No sign reference images found in backend/static/signs</span>';
+            return;
+        }
+
+        files.forEach(file => {
+            const card = document.createElement('div');
+            card.className = 'sign-item';
+
+            const img = document.createElement('img');
+            img.src = `${API_BASE}/signs/${encodeURIComponent(file)}`;
+            img.alt = file;
+
+            const label = document.createElement('div');
+            label.className = 'sign-label';
+            label.textContent = 'file name';
+
+            const name = document.createElement('div');
+            name.className = 'sign-file';
+            name.textContent = file;
+
+            card.appendChild(img);
+            card.appendChild(label);
+            card.appendChild(name);
+            gallery.appendChild(card);
+        });
+    } catch {
+        gallery.innerHTML =
+            '<span style="font-size:11px;color:#c4282a;font-family:monospace">Could not load sign reference list from API</span>';
+    }
+}
+
+
+loadModels();
+loadSignGallery();
+</script>
+</body>
+</html>

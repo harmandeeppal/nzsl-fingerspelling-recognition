@@ -1,0 +1,79 @@
+{
+  "svm_rbf_one_hand": {
+    "base_model": "svm_rbf",
+    "hand_group": "one_hand",
+    "accuracy": 0.9987460815047022,
+    "weighted_f1": 0.9987481567457681,
+    "input_type": "keypoints"
+  },
+  "random_forest_one_hand": {
+    "base_model": "random_forest",
+    "hand_group": "one_hand",
+    "accuracy": 0.9974921630094044,
+    "weighted_f1": 0.9974983965131683,
+    "input_type": "keypoints"
+  },
+  "knn_one_hand": {
+    "base_model": "knn",
+    "hand_group": "one_hand",
+    "accuracy": 0.9981191222570532,
+    "weighted_f1": 0.9981253629166608,
+    "input_type": "keypoints"
+  },
+  "mlp_sklearn_one_hand": {
+    "base_model": "mlp_sklearn",
+    "hand_group": "one_hand",
+    "accuracy": 0.9987460815047022,
+    "weighted_f1": 0.9987481567457681,
+    "input_type": "keypoints"
+  },
+  "svm_rbf_two_hand": {
+    "base_model": "svm_rbf",
+    "hand_group": "two_hand",
+    "accuracy": 0.9984307571596704,
+    "weighted_f1": 0.9984305143959799,
+    "input_type": "keypoints"
+  },
+  "random_forest_two_hand": {
+    "base_model": "random_forest",
+    "hand_group": "two_hand",
+    "accuracy": 0.9980384464495881,
+    "weighted_f1": 0.998037404557333,
+    "input_type": "keypoints"
+  },
+  "knn_two_hand": {
+    "base_model": "knn",
+    "hand_group": "two_hand",
+    "accuracy": 0.9968615143193409,
+    "weighted_f1": 0.9968597800748978,
+    "input_type": "keypoints"
+  },
+  "mlp_sklearn_two_hand": {
+    "base_model": "mlp_sklearn",
+    "hand_group": "two_hand",
+    "accuracy": 0.9964692036092585,
+    "weighted_f1": 0.9964652633991818,
+    "input_type": "keypoints"
+  },
+  "mlp_keras_one_hand": {
+    "base_model": "mlp_keras",
+    "hand_group": "one_hand",
+    "accuracy": 0.9968652037617555,
+    "weighted_f1": 0.9968715151182271,
+    "input_type": "keypoints"
+  },
+  "mlp_keras_two_hand": {
+    "base_model": "mlp_keras",
+    "hand_group": "two_hand",
+    "accuracy": 0.9850921930168693,
+    "weighted_f1": 0.9849794815390016,
+    "input_type": "keypoints"
+  },
+  "pixel_svm_baseline": {
+    "base_model": "pixel_svm_baseline",
+    "hand_group": "combined_raw_pixel",
+    "accuracy": 0.9633333333333334,
+    "weighted_f1": 0.9632680615457065,
+    "input_type": "raw_pixels"
+  }
+}

@@ -85,13 +85,10 @@ nzsl-fingerspelling/
 ├── outputs/                          ← Reorganized pipeline output artifacts
 │   ├── data/                         ← dataset.csv (508-dim cache)
 │   ├── results/                      ← Metric CSVs, txt reports, comparison tables
-│   └── figures/                      ← Reorganized plots, histories, confusion matrixes
+│   ├── figures/                      ← Reorganized plots, histories, confusion matrixes
+│   └── screenshots/                  ← Analysis and health preview screenshots
 │
-├── assets/                           ← Dashboard preview screenshots for README
-│   ├── Health.png
-│   ├── Models.png
-│   ├── Signs_List.png
-│   ├── webpage1.png
+├── assets/                           ← Showcase screenshot for README
 │   └── dashboard_preview.png
 │
 ├── latex/

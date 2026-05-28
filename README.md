@@ -1,555 +1,265 @@
-# NZSL Fingerspelling Recognition
+# NZSL Fingerspelling Recognition — Privacy-Preserving Keypoint System
 
-## Git LFS — Required for Model Checkpoints
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/harmandeeppal/nzsl-fingerspelling-recognition?devcontainer_one_click=true)
 
-The trained model files in `checkpoints/` (`.joblib`, `.h5`, `.pkl`, `.npy`) are stored using **Git Large File Storage (LFS)**. You must have Git LFS installed before cloning, otherwise these files will download as tiny pointer stubs and the server will fail to start.
+Privacy-preserving, real-time New Zealand Sign Language (NZSL) and British Sign Language (BSL) fingerspelling recognition system. 
 
-### Install Git LFS (once per machine)
-
-Download from [git-lfs.com](https://git-lfs.com) or via a package manager:
-
-```powershell
-# Windows (winget)
-winget install GitHub.GitLFS
-
-# macOS (Homebrew)
-brew install git-lfs
-
-# Linux (apt)
-sudo apt install git-lfs
-```
-
-After installing, initialise it once:
-
-```powershell
-git lfs install
-```
-
-### Clone the repository
-
-```powershell
-git clone <repo-url>
-cd nzsl-fingerspelling
-```
-
-Git LFS downloads the checkpoint files automatically during the clone if LFS is already installed.
-
-### If you already cloned without LFS
-
-Run this from the project root to download the actual model files:
-
-```powershell
-git lfs pull
-```
-
-The bootstrap script checks for LFS pointer stubs and will tell you if `git lfs pull` is needed before the server can start.
+Rather than processing raw webcam frames, this system extracts 21 hand skeleton keypoints using **MediaPipe Hands**, immediately discards the raw visual frame, and performs classification on a scale-invariant 508-dimensional pose vector. One-hand and two-hand signs are processed using independent model branches and routed automatically at inference.
 
 ---
 
-## Quick Start — Run on Your Local Machine
+<!-- 
+  NOTE FOR YOUTUBE:
+  Replace "YOUR_VIDEO_ID" below with your actual YouTube video ID (e.g. dQw4w9WgXcQ)
+-->
+<p align="center">
+  <img src="screenshots/webpage2.png" width="800" alt="NZSL Fingerspelling Web Dashboard Preview">
+</p>
 
-The fastest way to get the demo running is the **bootstrap script**. It handles environment creation, dependency installation, and server startup in a single command.
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=YOUR_VIDEO_ID">
+    <img src="https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg" width="800" alt="Watch the Demo Video">
+  </a>
+</p>
 
-### Prerequisites
+---
 
-- [Miniconda3](https://docs.conda.io/en/latest/miniconda.html) or Anaconda installed and on your PATH
-- A terminal opened **in the project root** (the folder that contains `environment.yml`)
+## Table of Contents
 
-### First run
+1. [Project Overview](#1-project-overview)
+2. [Achieved Experimental Results](#2-achieved-experimental-results)
+3. [Project Structure](#3-project-structure)
+4. [Quick Start — Running the Demo](#4-quick-start--running-the-demo)
+   - [4.1 Hugging Face Token Configuration](#41-hugging-face-token-configuration)
+   - [4.2 Windows Bootstrap](#42-windows-bootstrap)
+   - [4.3 Linux / Codespaces Bootstrap](#43-linux--codespaces-bootstrap)
+5. [Manual Setup](#5-manual-setup)
+6. [Hugging Face Checkpoints Integration](#6-hugging-face-checkpoints-integration)
+   - [6.1 Model Resolution Manifest](#61-model-resolution-manifest)
+   - [6.2 Deploying / Uploading Checkpoints](#62-deploying--uploading-checkpoints)
+7. [Directory Cleanup & Output Reorganization](#7-directory-cleanup--output-reorganization)
+8. [Troubleshooting](#8-troubleshooting)
+
+---
+
+## 1. Project Overview
+
+This project consists of an end-to-end pipeline covering dataset download, face/hand feature extraction, model training, evaluation, and real-time inference:
+
+- **Stage 1 (Feature Extraction)**: Uses MediaPipe to convert 34,000 images from the BSL alphabet and numbers dataset into a scale-invariant, wrist-normalised 508-dimensional keypoint vector (254 dimensions per hand slot, zero-padded if a hand is missing).
+- **Stage 2 (Routing & Multi-Branch Classification)**: Automatically routes the pose vector to a specialist one-hand or two-hand model branch depending on whether one or two hands are active in the keypoint data.
+- **Stage 3 (Real-Time Web Server)**: A FastAPI backend serves the frontend webpage and loads the trained classifiers (SVM, Random Forest, k-NN, sklearn MLP, and Keras MLP) to run inference in real-time on webcam keypoint coordinates.
+
+---
+
+## 2. Achieved Experimental Results
+
+Five classifiers were evaluated on a held-out test partition (15% stratified split) and compared against a raw-pixel SVM baseline (trained on $64\times64$ greyscale images with PCA):
+
+| Model | One-Hand Test Accuracy | One-Hand Test F1 | Two-Hand Test Accuracy | Two-Hand Test F1 |
+|---|---|---|---|---|
+| **SVM (RBF)** *(Best overall)* | **99.87%** | **99.87%** | **99.84%** | **99.84%** |
+| Random Forest | 99.75% | 99.75% | 99.80% | 99.80% |
+| k-NN | 99.81% | 99.81% | 99.69% | 99.69% |
+| Sklearn MLP | 99.87% | 99.87% | 99.65% | 99.65% |
+| Keras MLP | 99.75% | 99.75% | 98.94% | 98.94% |
+| *Raw-pixel SVM Baseline* | *96.33%* | *96.33%* | *96.33%* | *96.33%* |
+
+> [!NOTE]
+> The keypoint-based SVM outperformed the raw-pixel baseline by **~3.5 percentage points** while requiring no raw image storage at inference time, proving that eliminating personal visual features (skin tone, lighting, background) increases model performance.
+
+---
+
+## 3. Project Structure
+
+```text
+nzsl-fingerspelling/
+│
+├── backend/
+│   ├── static/
+│   │   └── signs/                    ← Skeleton reference images (one PNG per class)
+│   ├── nzsl_api.py                   ← FastAPI web server & HF bootstrap downloader
+│   └── requirements.txt              ← Backend API dependencies
+│
+├── checkpoints/                      ← Ignored by git, downloaded on server start
+│   ├── *.joblib                      ← Scikit-learn models (SVM, RF, k-NN, MLP)
+│   ├── *.h5                          ← Keras neural network weights
+│   ├── *.pkl                         ← Keras MinMaxScaler scalers
+│   ├── *.npy                         ← Class name arrays
+│   └── model_results.json            ← Tabular accuracy results
+│
+├── notebook/
+│   ├── nzsl_fingerspelling_pipeline.ipynb  ← Hand extraction + training notebook
+│   └── visuals_generation.ipynb            ← Comparison plots & visual helper notebook
+│
+├── outputs/                          ← Reorganized pipeline output artifacts
+│   ├── data/                         ← dataset.csv (508-dim cache)
+│   ├── results/                      ← Metric CSVs, txt reports, comparison tables
+│   └── figures/                      ← Reorganized plots, histories, confusion matrixes
+│
+├── screenshots/                      ← Dashboard preview screenshots for README
+│   ├── Health.png
+│   ├── Models.png
+│   └── Signs_List.png
+│
+├── latex/
+│   ├── figures/                      ← LaTeX report figures (image1.png - image7.png)
+│   └── COMP820_Report-2.tex          ← IEEEtran conference report
+│
+├── scripts/
+│   └── upload_checkpoints.py         ← Script to push checkpoints to Hugging Face
+│
+├── bootstrap.ps1                     ← Windows bootstrap launch script
+├── bootstrap.sh                      ← Linux / Codespaces bootstrap launch script
+├── environment.yml                   ← Conda environment configuration
+├── model_manifest.json               ← Resolves checkpoints on Hugging Face model hub
+├── nzsl_frontend.html                ← Live web dashboard UI
+├── .env.example                      ← Template environment variables
+└── README.md                         ← This file
+```
+
+---
+
+## 4. Quick Start — Running the Demo
+
+Model checkpoints are hosted on the Hugging Face Model Hub. If checkpoints are missing locally, they download automatically on the first server start.
+
+### 4.1 Hugging Face Token Configuration
+
+If the Hugging Face model repository is **private**, you must configure a token with READ access.
+
+1. Get a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+2. Create a `.env` file in the project root:
+   ```ini
+   HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx
+   ```
+   *Alternatively, if no `.env` file is present and checkpoints are missing, the bootstrap script will prompt you to enter the token in the terminal and write it to `.env` for you.*
+
+---
+
+### 4.2 Windows Bootstrap
+
+Run the PowerShell bootstrap script from the project root:
 
 ```powershell
 .\bootstrap.ps1
 ```
 
-On the first run the script will:
-
-1. Verify you are in the correct project folder
-2. Check that `conda` is available
-3. Create the `nzsl-env` conda environment from `environment.yml` *(takes a few minutes)*
-4. Install the backend API dependencies from `backend\requirements.txt` into that environment
-5. Verify all model checkpoints are present in `checkpoints\`
-6. Check that sign reference images exist in `backend\static\signs\`
-7. Confirm port 8000 is free
-8. Start the FastAPI server
-
-Once the server is running, open your browser at:
-
-```
-http://localhost:8000
-```
-
-Press **CTRL+C** in the terminal to stop the server.
-
-### Subsequent runs
-
-Run the same command:
-
-```powershell
-.\bootstrap.ps1
-```
-
-The script detects that `nzsl-env` already exists and skips environment creation. It runs a quick package health check and launches the server immediately.
-
-### If PowerShell blocks script execution
-
-Run this once in the terminal, then retry:
-
+*If execution policies block the script, bypass them for this terminal session using:*
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-### Changing the port
+**What it automates:**
+1. Creates the `nzsl-env` conda environment from `environment.yml` (first run only).
+2. Installs the backend FastAPI requirements into `nzsl-env`.
+3. Loads `.env` file variables.
+4. Starts the FastAPI server on port `8000`. Missing checkpoints download automatically from Hugging Face on startup.
 
-Edit the `$PORT` variable at the top of `bootstrap.ps1`:
-
-```powershell
-$PORT = 8080   # change to any free port
-```
-
-Then visit `http://localhost:8080` instead.
+Access the UI at: **[http://localhost:8000](http://localhost:8000)**
 
 ---
 
-## Overview
+### 4.3 Linux / GitHub Codespaces Bootstrap
 
-This demo uses a FastAPI backend and an HTML frontend for live NZSL/BSL fingerspelling recognition.
+Run the bash bootstrap script from the project root:
 
-The frontend opens the webcam, extracts MediaPipe hand keypoints, and sends a 508-dimensional feature vector to the backend. The backend automatically routes the prediction to the correct one-hand or two-hand model based on the active hand slots in the keypoint vector.
+```bash
+chmod +x bootstrap.sh
+./bootstrap.sh
+```
 
-The user selects only the model type:
-
-- SVM
-- Random Forest
-- k-NN
-- MLP sklearn
-- MLP Keras
-
-The backend decides whether to use the one-hand or two-hand version of that selected model.
+**Accessing from Codespaces**:
+GitHub Codespaces will automatically forward port `8000`. Click the "Open in Browser" button in the pop-up or open port 8000 under the **Ports** tab of your editor.
 
 ---
 
-## Prerequisites checklist
+## 5. Manual Setup
 
-Before starting, confirm these files exist in the `checkpoints/` folder:
+If you prefer to configure the environment manually without the bootstrap scripts:
 
-```text
-checkpoints/
-├── svm_rbf_one_hand.joblib
-├── svm_rbf_two_hand.joblib
-├── random_forest_one_hand.joblib
-├── random_forest_two_hand.joblib
-├── knn_one_hand.joblib
-├── knn_two_hand.joblib
-├── mlp_sklearn_one_hand.joblib
-├── mlp_sklearn_two_hand.joblib
-├── mlp_keras_one_hand.h5
-├── mlp_keras_two_hand.h5
-├── keras_scaler_one_hand.pkl
-├── keras_scaler_two_hand.pkl
-├── label_classes_one_hand.npy
-├── label_classes_two_hand.npy
-└── model_results.json
-```
-
-Optional report-comparison file:
-
-```text
-checkpoints/
-└── pixel_svm_baseline.joblib
-```
-
-The raw-pixel baseline is mainly used for report/presentation comparison. The live demo uses the routed keypoint models.
-
-If any routed model files are missing, rerun the full notebook export section.
-
----
-
-## Step 1 — Generate skeleton reference images
-
-The sign reference panel in the web UI shows a skeleton image for each predicted class.
-
-These images should exist here:
-
-```text
-backend/
-└── static/
-    └── signs/
-        ├── A.png
-        ├── B.png
-        ├── C.png
-        └── ... one PNG per class
-```
-
-If this folder is empty, rerun the notebook section that generates skeleton reference PNGs.
-
----
-
-## Step 2 — Activate the project environment
-
-Open a terminal in the project root folder.
-
-If you are using the VS Code virtual environment, activate it with:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-If PowerShell blocks activation, run this once:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-
-Then activate again:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-You should see `(.venv)` at the beginning of the terminal line.
-
----
-
-## Step 3 — Install backend dependencies
-
-Run this from the project root:
-
-```powershell
-pip install -r backend\requirements.txt
-```
-
-The backend requirements are only for the API/server side. Use the same Python environment that was used to train/export the models so that scikit-learn, TensorFlow, NumPy, and joblib versions remain compatible.
-
----
-
-## Step 4 — Navigate to the project root
-
-Make sure your terminal is in the project root, not inside the `backend/` folder.
-
-You can verify you are in the correct folder by running:
-
-```powershell
-dir
-```
-
-You should see files/folders like:
-
-```text
-nzsl_frontend.html
-backend/
-checkpoints/
-notebook/
-outputs/
-README.md
-```
-
----
-
-## Step 5 — Start the API server
-
-Run:
-
-```powershell
-uvicorn backend.nzsl_api:app --reload --port 8000
-```
-
-A successful routed startup should show loaded one-hand and two-hand routes, for example:
-
-```text
-[OK]  svm_rbf_one_hand ← svm_rbf_one_hand.joblib
-[OK]  svm_rbf_two_hand ← svm_rbf_two_hand.joblib
-[OK]  random_forest_one_hand ← random_forest_one_hand.joblib
-[OK]  random_forest_two_hand ← random_forest_two_hand.joblib
-[OK]  knn_one_hand ← knn_one_hand.joblib
-[OK]  knn_two_hand ← knn_two_hand.joblib
-[OK]  mlp_sklearn_one_hand ← mlp_sklearn_one_hand.joblib
-[OK]  mlp_sklearn_two_hand ← mlp_sklearn_two_hand.joblib
-[OK]  mlp_keras_one_hand ← mlp_keras_one_hand.h5
-[OK]  mlp_keras_two_hand ← mlp_keras_two_hand.h5
-INFO:     Uvicorn running on http://127.0.0.1:8000
-```
-
----
-
-## Step 6 — Check API health
-
-Open this in your browser:
-
-```text
-http://localhost:8000/health
-```
-
-Expected result:
-
-```text
-"status": "ok"
-"version": "routed_one_two_hand"
-```
-
-It should also show loaded routes such as:
-
-```text
-"svm_rbf": ["one_hand", "two_hand"]
-"random_forest": ["one_hand", "two_hand"]
-"knn": ["one_hand", "two_hand"]
-"mlp_sklearn": ["one_hand", "two_hand"]
-```
-
-Keras should show:
-
-```text
-"keras_models_loaded": ["one_hand", "two_hand"]
-```
-
----
-
-## Step 7 — Check available models
-
-Open:
-
-```text
-http://localhost:8000/models
-```
-
-Expected model keys:
-
-```text
-svm_rbf
-random_forest
-knn
-mlp_sklearn
-mlp_keras
-```
-
-Each model should show:
-
-```text
-"available_routes": ["one_hand", "two_hand"]
-"routing": "automatic_by_detected_hand_count"
-```
-
-This confirms that the frontend can still show simple model buttons while the backend handles one-hand/two-hand routing automatically.
-
----
-
-## Step 8 — Open the web demo
-
-Open:
-
-```text
-http://localhost:8000
-```
-
-Your browser will ask for webcam permission. Click **Allow**.
-
----
-
-## Using the demo
-
-| What you see | What it means |
-|---|---|
-| Status badge shows green `N models ready` | API loaded routed models successfully |
-| `Webcam active — show your hands` | Camera is running |
-| Skeleton appears on your hands | MediaPipe tracking is working |
-| Large letter appears | Current prediction |
-| Confidence percentage appears | Model confidence for the current prediction |
-| Blue hold bar fills | Hold the sign steady to commit the letter |
-| Letter appears in word builder | Stable sign has been committed |
-| Reference sign panel updates | Shows skeleton reference for the predicted class |
-
-Controls:
-
-- **Skeleton only / Webcam + overlay** — toggle between black canvas and live video with skeleton overlay.
-- **Model pills** — switch between SVM, Random Forest, k-NN, MLP sklearn, and MLP Keras.
-- **Backspace** — remove the last committed letter.
-- **Clear** — clear the whole word.
-- **Speak word** — read the built word aloud.
-- **Speak each committed letter** — toggle per-letter audio feedback.
-
----
-
-## User guidance
-
-For better live prediction:
-
-- For one-hand signs, show one hand clearly.
-- For two-hand signs, keep both hands visible and stable.
-- Try to match the reference skeleton shown in the web interface.
-- Hold the sign still until the confidence stabilises.
-- Keep your hand inside the camera frame.
-- Use good lighting and avoid cluttered backgrounds.
-- Some visually similar signs may still be confused if the hand shape, angle, or finger spacing is different from the training examples.
-
----
-
-## How routing works
-
-The frontend sends:
-
-```text
-features + selected model key
-```
-
-The backend then:
-
-```text
-checks whether one or two hand slots are active
-→ selects the one-hand or two-hand checkpoint
-→ predicts the class
-→ returns label, confidence, hand group, and routed model used
-```
-
-Example:
-
-```text
-selected model = svm_rbf
-one hand detected → svm_rbf_one_hand.joblib
-two hands detected → svm_rbf_two_hand.joblib
-```
-
-The frontend does not need a separate one-hand/two-hand selection button. The backend handles this automatically.
-
----
-
-## Privacy note
-
-The demo does not store webcam frames.
-
-The live system uses MediaPipe skeleton/keypoint features for prediction instead of storing raw visual frames. This supports the privacy-preserving goal of the project.
-
-The raw-pixel SVM baseline is kept for report/presentation comparison only. It helps compare privacy risk and model performance, but the live demo focuses on keypoint-based recognition.
-
----
-
-## Stopping the server
-
-Press:
-
-```text
-CTRL + C
-```
-
-in the terminal where Uvicorn is running.
-
----
-
-## Troubleshooting
-
-### API shows `no_models_loaded`
-
-Check that the routed checkpoint files exist in:
-
-```text
-checkpoints/
-```
-
-If missing, rerun the full notebook export section.
-
----
-
-### Model buttons do not appear
-
-Check:
-
-```text
-http://localhost:8000/models
-```
-
-If it returns empty data, the backend did not load the checkpoint files correctly.
-
----
-
-### API offline badge appears
-
-The browser cannot reach the backend. Check:
-
-- Uvicorn is still running.
-- You are visiting `http://localhost:8000`, not `https://localhost:8000`.
-- No other process is using port 8000.
-- The terminal did not show Python errors.
-
-To use a different port:
-
-```powershell
-uvicorn backend.nzsl_api:app --reload --port 8080
-```
-
-Then visit:
-
-```text
-http://localhost:8080
-```
-
----
-
-### Sign reference panel shows no image
-
-The `backend/static/signs/` folder may be empty.
-
-Rerun the notebook section that generates skeleton reference PNGs, then restart the server.
-
----
-
-### `ModuleNotFoundError: No module named 'fastapi'`
-
-Install backend dependencies:
-
-```powershell
-pip install -r backend\requirements.txt
-```
-
----
-
-### Keras model shows `[ERR]`
-
-The most likely cause is a TensorFlow/Keras version mismatch.
-
-Use the same Python environment used to train/export the models. Check TensorFlow with:
-
-```powershell
-python -c "import tensorflow as tf; print(tf.__version__)"
-```
-
-If the environment was changed after training, recreate or reactivate the correct project environment and try again.
-
----
-
-### Webcam not detected
-
-Try:
-
-- Close Teams, Zoom, OBS, or any other app using the camera.
-- Refresh the page.
-- Check browser camera permission.
-- On Windows, check: **Settings → Privacy & Security → Camera**.
-
----
-
-### Predictions are unstable
-
-Try:
-
-- Hold the sign still.
-- Improve lighting.
-- Move hands closer to the camera.
-- Match the reference skeleton.
-- Keep both hands visible for two-hand signs.
-- Keep the same left/right hand position while signing.
-
-If predictions are still too unstable, increase `MIN_CONF` in `nzsl_frontend.html`.
-
----
-
-## Quick reference commands
-
-```powershell
-# One-command launch (recommended)
-.\bootstrap.ps1
-
-# Manual launch
+```bash
+# 1. Create and activate environment
+conda env create -f environment.yml
 conda activate nzsl-env
-uvicorn backend.nzsl_api:app --reload --port 8000
 
-# Open browser
-# http://localhost:8000
+# 2. Install backend API requirements
+pip install -r backend/requirements.txt
+
+# 3. Set Hugging Face token (if repository is private)
+export HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxx" # Linux/macOS
+# or
+$env:HF_TOKEN = "hf_xxxxxxxxxxxxxxxxxxxx" # Windows PowerShell
+
+# 4. Start the server
+uvicorn backend.nzsl_api:app --host 0.0.0.0 --port 8000
 ```
+
+---
+
+## 6. Hugging Face Checkpoints Integration
+
+Checkpoints are completely ignored by Git and removed from GitHub to keep the repository lightweight. Instead, the backend API downloads them from Hugging Face on demand.
+
+### 6.1 Model Resolution Manifest
+
+On startup, `backend/nzsl_api.py` checks `model_manifest.json` for model resolution paths. If any of the files in `checkpoints/` are missing, the server calls `huggingface_hub.hf_hub_download` using the `HF_TOKEN` environment variable:
+
+```json
+{
+  "repo_id": "harmandeeppal/nzsl-fingerspelling-recognition",
+  "revision": "main",
+  "files": [
+    "svm_rbf_one_hand.joblib",
+    "svm_rbf_two_hand.joblib",
+    ...
+  ]
+}
+```
+
+---
+
+### 6.2 Deploying / Uploading Checkpoints
+
+If you train new models and want to deploy them to the Hugging Face Hub:
+
+1. Obtain a Hugging Face token with **WRITE** access.
+2. Make sure your trained model checkpoints are in the `checkpoints/` folder.
+3. Run the upload script:
+   ```bash
+   python scripts/upload_checkpoints.py
+   ```
+4. Enter your write access token when prompted. The script will automatically create/verify the repository and push all files listed in `model_manifest.json`.
+
+---
+
+## 7. Directory Cleanup & Output Reorganization
+
+The project output files are organized into dedicated subdirectories under `outputs/`:
+- `outputs/data/` houses cache database files (`dataset.csv`).
+- `outputs/results/` houses metric CSV tables and classification report TXT files.
+- `outputs/figures/` houses visual charts, confusion matrices, and training histories.
+
+The root `figures/` directory has been removed, and all LaTeX-specific figures (e.g. `image1.png` - `image7.png` used by `COMP820_Report-2.tex`) are stored inside `latex/figures/` to keep the root directory clean. The LaTeX compiler compiles correctly because the document preamble contains:
+```latex
+\graphicspath{{figures/}{latex/figures/}}
+```
+
+---
+
+## 8. Troubleshooting
+
+### `ModuleNotFoundError: No module named 'huggingface_hub'`
+You need to install the backend dependencies. Run the bootstrap script or manually install:
+```bash
+pip install -r backend/requirements.txt
+```
+
+### API returns `no_models_loaded` status
+Verify that `checkpoints/` contains the required files or that your `HF_TOKEN` in `.env` is correct. Check terminal logs for any network errors while the server was attempting to connect to Hugging Face.
+
+### Sign reference panel is empty in web UI
+The backend references reference PNG files under `backend/static/signs/` to render skeletons. If this directory is empty, rerun the visuals generation notebook to regenerate reference images.
+
+---
+*Last updated: May 2026*

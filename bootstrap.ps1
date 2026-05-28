@@ -6,7 +6,7 @@
     First run  : creates the 'nzsl-env' conda environment from environment.yml,
                  installs backend/requirements.txt, then starts the API server.
     Subsequent : verifies the environment and dependencies are healthy, then
-                 starts the server directly — skipping the creation steps.
+                 starts the server directly -- skipping the creation steps.
 
     Run this script from the project root (the folder containing environment.yml).
     Usage: .\bootstrap.ps1
@@ -16,11 +16,11 @@
     Port:     8000 (edit $PORT below to change)
 #>
 
-# ── Configuration ─────────────────────────────────────────────────────────────
+# -- Configuration -------------------------------------------------------------
 $ENV_NAME = "nzsl-env"
 $PORT     = 8000
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------------
 function Write-Step { param([string]$Msg) Write-Host "`n  [>>] $Msg" -ForegroundColor Cyan }
 function Write-OK   { param([string]$Msg) Write-Host "  [OK] $Msg"   -ForegroundColor Green }
 function Write-Warn { param([string]$Msg) Write-Host "  [!!] $Msg"   -ForegroundColor Yellow }
@@ -31,23 +31,23 @@ function Fail {
 }
 
 Write-Host ""
-Write-Host "  ════════════════════════════════════════════" -ForegroundColor DarkCyan
-Write-Host "   NZSL Fingerspelling — Bootstrap" -ForegroundColor White
-Write-Host "  ════════════════════════════════════════════" -ForegroundColor DarkCyan
+Write-Host "  ============================================" -ForegroundColor DarkCyan
+Write-Host "   NZSL Fingerspelling -- Bootstrap" -ForegroundColor White
+Write-Host "  ============================================" -ForegroundColor DarkCyan
 Write-Host ""
 
-# ── 1. Working directory ───────────────────────────────────────────────────────
+# -- 1. Working directory -------------------------------------------------------
 Write-Step "Checking working directory..."
 $required = @("environment.yml", "nzsl_frontend.html", "backend", "checkpoints")
 $notFound = $required | Where-Object { -not (Test-Path $_) }
 if ($notFound) {
     Fail ("Missing expected project items: $($notFound -join ', ')." +
-          "`n       Run this script from the project root — the folder that contains environment.yml." +
+          "`n       Run this script from the project root -- the folder that contains environment.yml." +
           "`n       Example: cd 'C:\path\to\nzsl-fingerspelling'; .\bootstrap.ps1")
 }
 Write-OK "Project root confirmed."
 
-# ── 2. conda availability ─────────────────────────────────────────────────────
+# -- 2. conda availability -----------------------------------------------------
 Write-Step "Checking conda..."
 if (-not (Get-Command conda -ErrorAction SilentlyContinue)) {
     Fail ("conda not found on PATH.`n" +
@@ -57,7 +57,7 @@ if (-not (Get-Command conda -ErrorAction SilentlyContinue)) {
 $condaVersion = (conda --version 2>&1).ToString().Trim()
 Write-OK $condaVersion
 
-# ── 3. Conda environment setup ────────────────────────────────────────────────
+# -- 3. Conda environment setup ------------------------------------------------
 Write-Step "Checking conda environment '$ENV_NAME'..."
 
 $envList   = conda env list 2>&1
@@ -65,9 +65,9 @@ $envExists = [bool]($envList | Select-String "^$([regex]::Escape($ENV_NAME))\s")
 
 if (-not $envExists) {
 
-    # ── First-run path ────────────────────────────────────────────────────────
+    # -- First-run path --------------------------------------------------------
     Write-Host ""
-    Write-Host "  First run detected — setting up '$ENV_NAME'." -ForegroundColor White
+    Write-Host "  First run detected -- setting up '$ENV_NAME'." -ForegroundColor White
     Write-Host "  This may take several minutes depending on your internet speed." -ForegroundColor DarkGray
     Write-Host ""
 
@@ -90,14 +90,14 @@ if (-not $envExists) {
 
 } else {
 
-    # ── Subsequent-run path ───────────────────────────────────────────────────
-    Write-OK "Environment '$ENV_NAME' already exists — skipping creation."
+    # -- Subsequent-run path ---------------------------------------------------
+    Write-OK "Environment '$ENV_NAME' already exists -- skipping creation."
 
     Write-Step "Verifying key packages..."
 
     # Conda and pip packages to check (as they appear in 'conda list' Name column)
-    $corePackages    = @("numpy", "scikit-learn", "tensorflow", "mediapipe", "opencv")
-    $backendPackages = @("fastapi", "uvicorn")
+    $corePackages    = @("numpy", "scikit-learn", "tensorflow", "mediapipe", "opencv-python")
+    $backendPackages = @("fastapi", "uvicorn", "huggingface-hub")
     $allPackages     = $corePackages + $backendPackages
 
     $installedList = conda list -n $ENV_NAME 2>&1
@@ -111,7 +111,7 @@ if (-not $envExists) {
         if ($hit) {
             Write-OK "  $pkg"
         } else {
-            Write-Warn "  $pkg — not found in environment"
+            Write-Warn "  $pkg -- not found in environment"
             $missing += $pkg
         }
     }
@@ -136,41 +136,72 @@ if (-not $envExists) {
     }
 }
 
-# ── 4. Git LFS — pull model checkpoints if needed ────────────────────────────
-Write-Step "Checking Git LFS..."
+# -- 4. Hugging Face token -----------------------------------------------------
+Write-Step "Checking Hugging Face token..."
 
-$isGitRepo = (git rev-parse --is-inside-work-tree 2>&1) -eq "true"
-if ($isGitRepo) {
-    $lfsCheck = git lfs version 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        git lfs install 2>&1 | Out-Null
-        Write-OK "Git LFS ready ($($lfsCheck.ToString().Trim()))."
-
-        Write-Step "Pulling LFS checkpoint files..."
-        git lfs pull
-        if ($LASTEXITCODE -ne 0) {
-            Fail ("'git lfs pull' failed.`n" +
-                  "       Check that you have access to the repository and try again.")
+# Load .env file into current process environment if present
+if (Test-Path ".env") {
+    Get-Content ".env" | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -and -not $line.StartsWith("#")) {
+            $parts = $line -split "=", 2
+            if ($parts.Count -eq 2) {
+                $key = $parts[0].Trim()
+                $val = $parts[1].Trim()
+                if (-not [System.Environment]::GetEnvironmentVariable($key)) {
+                    [System.Environment]::SetEnvironmentVariable($key, $val, "Process")
+                }
+            }
         }
-        Write-OK "LFS files are up to date."
-    } else {
-        # LFS not installed — check whether any checkpoint files are pointer stubs.
-        $stubs = @(Get-ChildItem checkpoints -ErrorAction SilentlyContinue) | Where-Object {
-            $first = Get-Content $_.FullName -TotalCount 1 -Encoding UTF8 -ErrorAction SilentlyContinue
-            $first -match "^version https://git-lfs"
-        }
-        if ($stubs) {
-            Fail ("Git LFS is not installed but checkpoint files are LFS pointer stubs.`n" +
-                  "       Install Git LFS: https://git-lfs.com`n" +
-                  "       Then rerun this script — it will run 'git lfs pull' automatically.")
-        }
-        Write-Warn "Git LFS not installed — checkpoint files appear to be local, continuing."
     }
-} else {
-    Write-OK "Not a git repository — skipping LFS check."
+    Write-OK ".env file loaded."
 }
 
-# ── 5. Model checkpoint files ─────────────────────────────────────────────────
+$hfToken = $env:HF_TOKEN
+if (-not $hfToken) { $hfToken = $env:HUGGINGFACE_HUB_TOKEN }
+
+if (-not $hfToken -or $hfToken -eq "hf_xxxxxxxxxxxxxxxxxxxx") {
+    Write-Host ""
+    Write-Host "  Hugging Face token (HF_TOKEN) is not set." -ForegroundColor Yellow
+    Write-Host "  This token may be required to download model checkpoints from Hugging Face." -ForegroundColor DarkGray
+    Write-Host "  (You can get a free token with Read access at https://huggingface.co/settings/tokens)" -ForegroundColor DarkGray
+    Write-Host ""
+    $inputToken = Read-Host "  Enter your Hugging Face Token (leave empty if the repo is public)"
+    $inputToken = $inputToken.Trim()
+
+    if ($inputToken) {
+        $hfToken = $inputToken
+        [System.Environment]::SetEnvironmentVariable("HF_TOKEN", $hfToken, "Process")
+        $env:HF_TOKEN = $hfToken
+        if (Test-Path ".env") {
+            $content = Get-Content ".env"
+            $hasToken = $false
+            for ($i = 0; $i -lt $content.Count; $i++) {
+                if ($content[$i] -match "^HF_TOKEN=") {
+                    $content[$i] = "HF_TOKEN=$hfToken"
+                    $hasToken = $true
+                    break
+                }
+            }
+            if ($hasToken) {
+                $content | Set-Content ".env"
+            } else {
+                Add-Content -Path ".env" -Value "`nHF_TOKEN=$hfToken"
+            }
+        } else {
+            Set-Content -Path ".env" -Value "HF_TOKEN=$hfToken"
+        }
+        Write-OK "Token saved to .env file and set for this session."
+    }
+}
+
+if (-not $hfToken -or $hfToken -eq "hf_xxxxxxxxxxxxxxxxxxxx") {
+    Write-Warn "HF_TOKEN is not set or is placeholder -- anonymous download fallback mode active."
+} else {
+    Write-OK "HF_TOKEN is set -- checkpoints will download using token."
+}
+
+# -- 5. Model checkpoint files -------------------------------------------------
 Write-Step "Checking model checkpoints..."
 
 $checkpoints = @(
@@ -193,13 +224,14 @@ $checkpoints = @(
 $missingCp = $checkpoints | Where-Object { -not (Test-Path $_) }
 if ($missingCp) {
     $list = ($missingCp | ForEach-Object { "         $_" }) -join "`n"
-    Fail ("Missing model checkpoint file(s):`n$list`n" +
-          "       Rerun the full export section of notebook\nzsl_fingerspelling_pipeline.ipynb" +
-          " to regenerate them.")
+    Write-Warn "Missing checkpoint file(s):`n$list"
+    Write-Warn "They will be downloaded from huggingface.co/harmandeeppal/nzsl-fingerspelling-recognition"
+    Write-Warn "on first server start -- this may take a few minutes."
+} else {
+    Write-OK "All $($checkpoints.Count) checkpoint files present."
 }
-Write-OK "All $($checkpoints.Count) checkpoint files present."
 
-# ── 5. Sign reference images (non-fatal warning) ───────────────────────────────
+# -- 5. Sign reference images (non-fatal warning) -------------------------------
 Write-Step "Checking sign reference images..."
 $signsDir = "backend\static\signs"
 if (-not (Test-Path $signsDir)) {
@@ -209,14 +241,14 @@ if (-not (Test-Path $signsDir)) {
 } else {
     $pngCount = @(Get-ChildItem "$signsDir\*.png" -ErrorAction SilentlyContinue).Count
     if ($pngCount -eq 0) {
-        Write-Warn "backend\static\signs\ is empty — sign reference panel will be blank."
+        Write-Warn "backend\static\signs\ is empty -- sign reference panel will be blank."
         Write-Warn "Rerun notebook\visuals_generation.ipynb to generate reference images."
     } else {
         Write-OK "$pngCount sign reference PNG(s) found."
     }
 }
 
-# ── 6. Port availability (non-fatal warning) ──────────────────────────────────
+# -- 6. Port availability (non-fatal warning) ----------------------------------
 Write-Step "Checking port $PORT..."
 $portCheck = netstat -ano 2>$null | Select-String "[:.]$PORT\s"
 if ($portCheck) {
@@ -226,9 +258,9 @@ if ($portCheck) {
     Write-OK "Port $PORT is available."
 }
 
-# ── 7. Launch the server ──────────────────────────────────────────────────────
+# -- 7. Launch the server ------------------------------------------------------
 Write-Host ""
-Write-Host "  ────────────────────────────────────────────" -ForegroundColor DarkGray
+Write-Host "  --------------------------------------------" -ForegroundColor DarkGray
 Write-Host "  All checks passed. Starting the server..." -ForegroundColor White
 Write-Host ""
 Write-Host "  Once you see 'Application startup complete.' below," -ForegroundColor DarkGray
@@ -237,11 +269,11 @@ Write-Host ""
 Write-Host "    http://localhost:$PORT" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Press CTRL+C to stop." -ForegroundColor DarkGray
-Write-Host "  ────────────────────────────────────────────" -ForegroundColor DarkGray
+Write-Host "  --------------------------------------------" -ForegroundColor DarkGray
 Write-Host ""
 
 # --no-capture-output streams uvicorn directly to this terminal in real time.
-# Piping (2>&1 | ForEach-Object) silently buffers all output until exit — do not use it.
+# Piping (2>&1 | ForEach-Object) silently buffers all output until exit -- do not use it.
 conda run --no-capture-output -n $ENV_NAME `
     uvicorn backend.nzsl_api:app --reload --port $PORT
 

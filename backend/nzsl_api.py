@@ -12,8 +12,64 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import os
+import shutil
+
 ROOT_DIR      = Path(__file__).resolve().parent.parent
 CHECKPOINTS   = ROOT_DIR / 'checkpoints'
+
+# ── Hugging Face Bootstrapping ─────────────────────────────────────────────────
+def bootstrap_artifacts():
+    manifest_path = ROOT_DIR / 'model_manifest.json'
+    if not manifest_path.exists():
+        print(f'[WARN] model_manifest.json not found at {manifest_path}. Skipping Hugging Face download.')
+        return
+
+    try:
+        with open(manifest_path, encoding='utf-8') as f:
+            manifest = json.load(f)
+    except Exception as e:
+        print(f'[ERR] Could not parse model_manifest.json: {e}')
+        return
+
+    repo_id = manifest.get('repo_id', 'harmandeeppal/nzsl-fingerspelling-recognition')
+    revision = manifest.get('revision', 'main')
+    files_to_download = manifest.get('files', [])
+
+    CHECKPOINTS.mkdir(parents=True, exist_ok=True)
+    hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
+
+    missing_files = [f for f in files_to_download if not (CHECKPOINTS / f).exists()]
+    if not missing_files:
+        print('[OK]  All checkpoints present locally.')
+        return
+
+    print(f'[INFO] Found {len(missing_files)} missing checkpoint(s). Initiating Hugging Face download from {repo_id}...')
+    try:
+        from huggingface_hub import hf_hub_download
+        for filename in missing_files:
+            target_path = CHECKPOINTS / filename
+            print(f'[INFO] Downloading {filename}...')
+            downloaded_path = hf_hub_download(
+                repo_id=repo_id,
+                filename=filename,
+                revision=revision,
+                token=hf_token,
+                local_dir=str(CHECKPOINTS)
+            )
+            # Ensure the downloaded file matches target_path
+            downloaded = Path(downloaded_path)
+            if downloaded.resolve() != target_path.resolve():
+                shutil.copy2(downloaded, target_path)
+            print(f'[OK]  Downloaded {filename}')
+    except ImportError:
+        print('[ERR] huggingface_hub library not installed. Cannot download missing checkpoints.')
+    except Exception as e:
+        print(f'[ERR] Hugging Face download failed: {e}')
+        print('[WARN] Running in fallback mode. The server may fail if key checkpoints are missing.')
+
+bootstrap_artifacts()
+
 SIGNS_DIR     = Path(__file__).resolve().parent / 'static' / 'signs'
 FRONTEND_HTML = ROOT_DIR / 'nzsl_frontend.html'
 RESULTS_JSON  = CHECKPOINTS / 'model_results.json'
@@ -35,7 +91,7 @@ if RESULTS_JSON.exists():
     try:
         with open(RESULTS_JSON, encoding='utf-8') as f:
             MODEL_RESULTS = json.load(f)
-        print(f'[OK]  model results ← {RESULTS_JSON.name}')
+        print(f'[OK]  model results <- {RESULTS_JSON.name}')
     except Exception as e:
         print(f'[ERR] Could not load {RESULTS_JSON.name}: {e}')
 
@@ -88,13 +144,13 @@ for model_key in list(ROUTED_SKLEARN_MODELS.keys()):
         ckpt_path = CHECKPOINTS / f'{model_key}_{hand_group}.joblib'
 
         if not ckpt_path.exists():
-            print(f'[MISS] {model_key}_{hand_group} ← {ckpt_path.name}')
+            print(f'[MISS] {model_key}_{hand_group} <- {ckpt_path.name}')
             continue
 
         try:
             bundle = joblib.load(ckpt_path)
             ROUTED_SKLEARN_MODELS[model_key][hand_group] = bundle
-            print(f'[OK]  {model_key}_{hand_group} ← {ckpt_path.name}')
+            print(f'[OK]  {model_key}_{hand_group} <- {ckpt_path.name}')
         except Exception as e:
             print(f'[ERR] {ckpt_path.name}: {e}')
 
@@ -132,7 +188,7 @@ for hand_group in HAND_GROUPS:
         KERAS_SCALERS[hand_group] = joblib.load(keras_scaler_path)
         KERAS_LABELS[hand_group] = np.load(keras_labels_path, allow_pickle=True).tolist()
 
-        print(f'[OK]  mlp_keras_{hand_group} ← {keras_model_path.name}')
+        print(f'[OK]  mlp_keras_{hand_group} <- {keras_model_path.name}')
     except Exception as e:
         print(f'[ERR] mlp_keras_{hand_group}: {e}')
 

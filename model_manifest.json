@@ -1,0 +1,23 @@
+{
+  "repo_id": "harmandeeppal/nzsl-fingerspelling-recognition",
+  "revision": "main",
+  "files": [
+    "keras_scaler_one_hand.pkl",
+    "keras_scaler_two_hand.pkl",
+    "knn_one_hand.joblib",
+    "knn_two_hand.joblib",
+    "label_classes_one_hand.npy",
+    "label_classes_two_hand.npy",
+    "mlp_keras_one_hand.h5",
+    "mlp_keras_two_hand.h5",
+    "mlp_sklearn_one_hand.joblib",
+    "mlp_sklearn_two_hand.joblib",
+    "model_results.json",
+    "nzsl_privacy_model.joblib",
+    "pixel_svm_baseline.joblib",
+    "random_forest_one_hand.joblib",
+    "random_forest_two_hand.joblib",
+    "svm_rbf_one_hand.joblib",
+    "svm_rbf_two_hand.joblib"
+  ]
+}

@@ -5,7 +5,16 @@ kaggle.json
 
 # ── Generated data and model files ───────────────────────────────────────────
 checkpoints/
-latex/
+latex/*.aux
+latex/*.log
+latex/*.out
+latex/*.pdf
+latex/*.synctex.gz
+latex/*.toc
+latex/*.fls
+latex/*.fdb_latexmk
+latex/*.blg
+latex/*.bbl
 *.h5
 *.joblib
 *.pkl

@@ -1,6 +1,18 @@
 # NZSL Fingerspelling Recognition — Privacy-Preserving Keypoint System
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/harmandeeppal/nzsl-fingerspelling-recognition?devcontainer_one_click=true)
+&nbsp;
+[![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-Model%20Hub-FFD21E?style=flat&logo=huggingface&logoColor=black)](https://huggingface.co/harmandeeppal/nzsl-fingerspelling-recognition)
+
+---
+
+### Contributors
+
+| | Name | LinkedIn | GitHub |
+|---|---|---|---|
+| **1** | Harmandeep Pal | [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/harmandeeppal/) | [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](https://github.com/harmandeeppal) |
+| **2** | Darashveer Singh Dhillon | [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/darashveersinghdhillon) | [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](#) |
+| **3** | *(Contributor 3)* | [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=flat&logo=linkedin&logoColor=white)](#) | [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](#) |
 
 Privacy-preserving, real-time New Zealand Sign Language (NZSL) and British Sign Language (BSL) fingerspelling recognition system. 
 

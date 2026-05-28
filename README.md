@@ -8,18 +8,8 @@ Rather than processing raw webcam frames, this system extracts 21 hand skeleton 
 
 ---
 
-<!-- 
-  NOTE FOR YOUTUBE:
-  Replace "YOUR_VIDEO_ID" below with your actual YouTube video ID (e.g. dQw4w9WgXcQ)
--->
 <p align="center">
-  <img src="screenshots/webpage2.png" width="800" alt="NZSL Fingerspelling Web Dashboard Preview">
-</p>
-
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=YOUR_VIDEO_ID">
-    <img src="https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg" width="800" alt="Watch the Demo Video">
-  </a>
+  <img src="assets/dashboard_preview.png" width="800" alt="NZSL Fingerspelling Web Dashboard Preview">
 </p>
 
 ---
@@ -97,10 +87,12 @@ nzsl-fingerspelling/
 │   ├── results/                      ← Metric CSVs, txt reports, comparison tables
 │   └── figures/                      ← Reorganized plots, histories, confusion matrixes
 │
-├── screenshots/                      ← Dashboard preview screenshots for README
+├── assets/                           ← Dashboard preview screenshots for README
 │   ├── Health.png
 │   ├── Models.png
-│   └── Signs_List.png
+│   ├── Signs_List.png
+│   ├── webpage1.png
+│   └── dashboard_preview.png
 │
 ├── latex/
 │   ├── figures/                      ← LaTeX report figures (image1.png - image7.png)
@@ -170,7 +162,12 @@ chmod +x bootstrap.sh
 ```
 
 **Accessing from Codespaces**:
-GitHub Codespaces will automatically forward port `8000`. Click the "Open in Browser" button in the pop-up or open port 8000 under the **Ports** tab of your editor.
+GitHub Codespaces will automatically forward port `8000`. Click the "Open in Browser" button in the pop-up or open port `8000` under the **Ports** tab of your editor.
+
+> [!TIP]
+> **Codespaces Optimization Features:**
+> - **Headless OpenCV Resolution**: The script automatically detects if standard OpenCV fails to import in the headless container environment and dynamically installs `opencv-python-headless` and any system GL bindings as needed.
+> - **Automated Model Resolution**: Missing model files are automatically resolved and downloaded from Hugging Face on startup, ensuring zero manual file transfers.
 
 ---
 

@@ -51,11 +51,11 @@ header {
 }
 
 .main {
-  max-width: 1080px;
+  max-width: 1400px;
   margin: 1.5rem auto;
   padding: 0 1.5rem;
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 1fr 300px 340px;
   grid-template-rows: auto auto;
   gap: 1.25rem;
 }
@@ -209,7 +209,7 @@ video  { display: none; }
 }
 
 /* ── Word builder ── */
-.word-card { grid-column: 1 / -1; }
+.word-card { grid-column: 1; }
 .word-display {
   font-family: monospace; font-size: 30px; font-weight: 600;
   letter-spacing: 0.12em; min-height: 46px;
@@ -239,22 +239,23 @@ video  { display: none; }
 
 
 /* ── Sign gallery ── */
-.sign-gallery-card { grid-column: 1 / -1; }
+.sign-gallery-card { grid-column: 3; grid-row: 1 / span 2; }
 .sign-gallery-intro {
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(10,12,16,0.58);
   margin-bottom: 12px;
+  line-height: 1.4;
 }
 .sign-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
 }
 .sign-item {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  padding: 8px;
+  padding: 6px;
 }
 .sign-item img {
   width: 100%;
@@ -265,24 +266,31 @@ video  { display: none; }
   display: block;
 }
 .sign-file {
-  margin-top: 6px;
+  margin-top: 4px;
   font-family: monospace;
-  font-size: 10px;
+  font-size: 9px;
   color: rgba(10,12,16,0.72);
   text-align: center;
   word-break: break-word;
 }
 .sign-label {
-  font-size: 9px;
+  font-size: 8px;
   color: rgba(10,12,16,0.42);
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
+@media (max-width: 1080px) {
+  .main { grid-template-columns: 1fr 320px; }
+  .word-card { grid-column: 1; grid-row: auto; }
+  .sign-gallery-card { grid-column: 2; grid-row: auto; }
+}
+
 @media (max-width: 680px) {
   .main { grid-template-columns: 1fr; }
-  .word-card { grid-column: 1; }
+  .word-card { grid-column: 1; grid-row: auto; }
+  .sign-gallery-card { grid-column: 1; grid-row: auto; }
 }
 </style>
 </head>

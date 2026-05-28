@@ -51,11 +51,11 @@ header {
 }
 
 .main {
-  max-width: 1400px;
+  max-width: 1440px;
   margin: 1.5rem auto;
   padding: 0 1.5rem;
   display: grid;
-  grid-template-columns: 1fr 300px 340px;
+  grid-template-columns: 320px 1fr 1fr;
   grid-template-rows: auto auto;
   gap: 1.25rem;
 }
@@ -77,6 +77,7 @@ header {
 .card-body { padding: 16px; }
 
 /* ── Webcam panel ── */
+.webcam-card { grid-column: 2; grid-row: 1; }
 .canvas-wrap {
   position: relative;
   background: #000;
@@ -115,6 +116,7 @@ video  { display: none; }
 .toggle-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
 
 /* ── Right panel ── */
+.info-card { grid-column: 1; grid-row: 1 / span 2; }
 .pred-block {
   text-align: center;
   padding: 20px 16px 14px;
@@ -209,7 +211,7 @@ video  { display: none; }
 }
 
 /* ── Word builder ── */
-.word-card { grid-column: 1; }
+.word-card { grid-column: 2; grid-row: 2; }
 .word-display {
   font-family: monospace; font-size: 30px; font-weight: 600;
   letter-spacing: 0.12em; min-height: 46px;
@@ -283,13 +285,17 @@ video  { display: none; }
 
 @media (max-width: 1080px) {
   .main { grid-template-columns: 1fr 320px; }
+  .webcam-card { grid-column: 1; grid-row: auto; }
   .word-card { grid-column: 1; grid-row: auto; }
+  .info-card { grid-column: 2; grid-row: auto; }
   .sign-gallery-card { grid-column: 2; grid-row: auto; }
 }
 
 @media (max-width: 680px) {
   .main { grid-template-columns: 1fr; }
+  .webcam-card { grid-column: 1; grid-row: auto; }
   .word-card { grid-column: 1; grid-row: auto; }
+  .info-card { grid-column: 1; grid-row: auto; }
   .sign-gallery-card { grid-column: 1; grid-row: auto; }
 }
 </style>
@@ -305,7 +311,7 @@ video  { display: none; }
 <div class="main">
 
   <!-- ── Left: webcam ── -->
-  <div class="card">
+  <div class="card webcam-card">
     <div class="card-header">Live Webcam Recognition</div>
     <div class="card-body">
       <div class="canvas-wrap">
@@ -321,7 +327,7 @@ video  { display: none; }
   </div>
 
   <!-- ── Right: info ── -->
-  <div class="card" style="display:flex;flex-direction:column;">
+  <div class="card info-card" style="display:flex;flex-direction:column;">
 
     <!-- Prediction + hold bar -->
     <div class="pred-block">

@@ -2,6 +2,7 @@
   "repo_id": "harmandeeppal/nzsl-fingerspelling-recognition",
   "revision": "main",
   "files": [
+    "README.md",
     "keras_scaler_one_hand.pkl",
     "keras_scaler_two_hand.pkl",
     "knn_one_hand.joblib",
